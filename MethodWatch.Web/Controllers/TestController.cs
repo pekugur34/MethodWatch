@@ -20,69 +20,83 @@ namespace MethodWatch.Web.Controllers
         }
 
         [HttpGet("fast")]
-        [MethodWatch]
         public IActionResult FastOperation()
         {
-            return Ok("Fast operation completed");
+            using (MethodWatch.Measure())
+            {
+                return Ok("Fast operation completed");
+            }
         }
 
         [HttpGet("slow")]
-        [MethodWatch]
-        public async Task<IActionResult> SlowOperation()
+        public IActionResult SlowOperation()
         {
-            await Task.Delay(200);
-            return Ok("Slow operation completed");
+            using (MethodWatch.Measure())
+            {
+                Thread.Sleep(200);
+                return Ok("Slow operation completed");
+            }
         }
 
-        [HttpGet("with-params")]
-        [MethodWatch(LogParameters = true)]
+        [HttpGet("params")]
         public IActionResult OperationWithParams([FromQuery] string name, [FromQuery] int value)
         {
-            return Ok($"Operation with parameters: {name}, {value}");
+            using (MethodWatch.Measure())
+            {
+                return Ok($"Operation with params: {name}={value}");
+            }
         }
 
-        [HttpGet("with-exception")]
-        [MethodWatch]
+        [HttpGet("exception")]
         public IActionResult OperationWithException()
         {
-            throw new Exception("Test exception");
+            using (MethodWatch.Measure())
+            {
+                throw new Exception("Test exception");
+            }
         }
 
         [HttpGet("complex")]
-        [MethodWatch(LogParameters = true)]
-        public IActionResult ComplexOperation([FromBody] ComplexObject data)
+        public IActionResult ComplexOperation()
         {
-            return Ok(data);
+            using (MethodWatch.Measure())
+            {
+                var result = new ComplexObject
+                {
+                    Name = "Test",
+                    Value = 42,
+                    Items = new List<string> { "Item1", "Item2" }
+                };
+                result.Self = result; // Circular reference
+
+                return Ok(result);
+            }
         }
 
         [HttpGet("manual")]
         public IActionResult ManualMeasurement()
         {
             // Example 1: Simple measurement
-            using (MethodWatch.Measure("TestController", "ManualMeasurement"))
+            using (MethodWatch.Measure("SimpleMeasurement"))
             {
                 // Simulate some work
                 Thread.Sleep(50);
             }
 
-            // Example 2: Measurement with parameters
-            using (MethodWatch.Measure(
-                "TestController", 
-                "ManualMeasurement", 
-                ("param1", "value1"), 
-                ("param2", 42)))
+            // Example 2: Measurement with custom name
+            using (MethodWatch.Measure("MeasurementWithCustomName"))
             {
                 // Simulate some work
                 Thread.Sleep(75);
             }
 
             // Example 3: Nested measurements
-            using (MethodWatch.Measure("TestController", "OuterOperation"))
+            using (MethodWatch.Measure("OuterOperation"))
             {
                 // Simulate some work
                 Thread.Sleep(25);
 
-                using (MethodWatch.Measure("TestController", "InnerOperation"))
+                using (MethodWatch.Measure("InnerOperation"))
                 {
                     // Simulate some work
                     Thread.Sleep(50);

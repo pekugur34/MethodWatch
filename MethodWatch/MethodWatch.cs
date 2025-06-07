@@ -5,6 +5,9 @@ using System.Linq;
 
 namespace MethodWatch;
 
+/// <summary>
+/// Provides manual method timing functionality.
+/// </summary>
 public static class MethodWatch
 {
     private static ILogger? _logger;
@@ -14,23 +17,39 @@ public static class MethodWatch
         _logger = loggerFactory.CreateLogger("MethodWatch");
     }
 
-    public static IDisposable Measure(string className, string methodName, params (string name, object? value)[] parameters)
+    /// <summary>
+    /// Measures the execution time of a code block.
+    /// </summary>
+    /// <param name="customName">Optional custom name to identify this measurement in logs. If not provided, the calling method name will be used.</param>
+    /// <returns>A disposable object that measures the execution time when disposed.</returns>
+    /// <example>
+    /// <code>
+    /// using (MethodWatch.Measure("CustomOperation"))
+    /// {
+    ///     // Your code here
+    /// }
+    /// </code>
+    /// </example>
+    public static IDisposable Measure(string? customName = null)
     {
-        return new MethodTimer(className, methodName, parameters);
+        var stackFrame = new StackFrame(1);
+        var method = stackFrame.GetMethod();
+        var className = method?.DeclaringType?.Name ?? "Unknown";
+        var methodName = customName ?? method?.Name ?? "Unknown";
+        
+        return new MethodWatchScope(className, methodName);
     }
 
-    private class MethodTimer : IDisposable
+    private class MethodWatchScope : IDisposable
     {
         private readonly string _className;
         private readonly string _methodName;
-        private readonly (string name, object? value)[] _parameters;
         private readonly Stopwatch _stopwatch;
 
-        public MethodTimer(string className, string methodName, (string name, object? value)[] parameters)
+        public MethodWatchScope(string className, string methodName)
         {
             _className = className;
             _methodName = methodName;
-            _parameters = parameters;
             _stopwatch = Stopwatch.StartNew();
         }
 
@@ -41,23 +60,11 @@ public static class MethodWatch
 
             if (_logger != null)
             {
-                string paramString = "()";
-                if (_parameters.Length > 0)
-                {
-                    var paramList = _parameters
-                        .Where(p => p.value != null)
-                        .Select(p => $"{p.name}={p.value}")
-                        .ToList();
-
-                    paramString = $"({string.Join(", ", paramList)})";
-                }
-
                 var status = elapsed >= 100 ? "[SLOW]" : "[OK]";
-                _logger.LogInformation("{Status} {Class}.{Method}{Params} -> {Elapsed:F2}ms",
+                _logger.LogInformation("{Status} {Class}.{Method} -> {Elapsed:F2}ms",
                     status,
                     _className,
                     _methodName,
-                    paramString,
                     elapsed);
             }
         }
