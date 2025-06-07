@@ -1,15 +1,14 @@
 # MethodWatch
 
-A lightweight .NET library for method execution monitoring and performance tracking. MethodWatch provides both attribute-based and manual measurement capabilities to help you track method execution times and parameters in your applications.
+A lightweight .NET library for method execution time monitoring and logging. MethodWatch provides both automatic and manual method timing capabilities.
 
 ## Features
 
-- 🚀 Attribute-based method monitoring
-- 📊 Manual measurement support
-- ⏱️ Execution time tracking
-- 🔍 Parameter logging
-- 🎯 Performance thresholds
-- 🛠️ Easy integration with ASP.NET Core
+- **Automatic Method Timing**: Use the `[MethodWatch]` attribute to automatically time method execution
+- **Manual Method Timing**: Use the `MethodWatch.Measure()` method for manual timing of code blocks
+- **Customizable Logging**: Configure logging thresholds and parameter visibility
+- **Exception Handling**: Automatic timing of methods that throw exceptions
+- **Circular Reference Handling**: Safe serialization of complex objects with circular references
 
 ## Installation
 
@@ -17,61 +16,51 @@ A lightweight .NET library for method execution monitoring and performance track
 dotnet add package MethodWatch
 ```
 
-## Quick Start
+## Usage
 
-### Attribute-based Monitoring
+### Automatic Method Timing
 
 Add the `[MethodWatch]` attribute to any method you want to monitor:
 
 ```csharp
 [MethodWatch]
-public IActionResult FastOperation()
+public void MyMethod()
 {
-    return Ok("Fast operation completed");
-}
-
-[MethodWatch(LogParameters = true)]
-public IActionResult OperationWithParams([FromQuery] string name, [FromQuery] int value)
-{
-    return Ok($"Operation with parameters: {name}, {value}");
+    // Method implementation
 }
 ```
 
-### Manual Measurement
+### Manual Method Timing
 
-Use the `Measure` method for more granular control:
+Use the `MethodWatch.Measure()` method to time specific code blocks:
 
 ```csharp
-using (MethodWatch.Measure("MyClass", "MyMethod", ("param1", value1), ("param2", value2)))
+// Simple usage - automatically uses the calling method name
+using (MethodWatch.Measure())
+{
+    // Your code here
+}
+
+// With custom name for better identification in logs
+using (MethodWatch.Measure("CustomOperation"))
 {
     // Your code here
 }
 ```
 
-### Configuration
+### Configuration Options
 
-Initialize MethodWatch in your ASP.NET Core application:
+The `[MethodWatch]` attribute supports the following options:
 
 ```csharp
-// In Program.cs
-MethodWatch.MethodWatch.Initialize(app.Services.GetRequiredService<ILoggerFactory>());
-```
-
-## Options
-
-The `MethodWatch` attribute supports the following options:
-
-- `LogParameters` (default: `true`): Log method parameters
-- `ThresholdMilliseconds` (default: `0`): Only log if execution time exceeds this threshold
-
-## Log Output
-
-MethodWatch provides clear and concise log output:
-
-```
-[OK] TestController.FastOperation() -> 5.23ms
-[SLOW] TestController.SlowOperation() -> 150.45ms
-[ERROR] TestController.OperationWithException() -> 0.50ms
+[MethodWatch(
+    ThresholdMilliseconds = 100,  // Log only if execution takes longer than 100ms
+    LogParameters = true          // Log method parameters
+)]
+public void MyMethod(string param1, int param2)
+{
+    // Method implementation
+}
 ```
 
 ## Examples
@@ -96,43 +85,44 @@ public void MethodWithParams(string name, int value)
 }
 ```
 
-### Manual Measurement
+### Manual Timing
 
 ```csharp
-// Simple measurement
-using (MethodWatch.Measure("MyClass", "MyMethod"))
+public void ComplexOperation()
 {
-    // Code to measure
-}
-
-// With parameters
-using (MethodWatch.Measure(
-    "MyClass", 
-    "MyMethod", 
-    ("param1", "value1"), 
-    ("param2", 42)))
-{
-    // Code to measure
-}
-
-// Nested measurements
-using (MethodWatch.Measure("MyClass", "OuterOperation"))
-{
-    // Some work
-    using (MethodWatch.Measure("MyClass", "InnerOperation"))
+    using (MethodWatch.Measure("ComplexOperation"))
     {
-        // Inner work
+        // Complex operation implementation
     }
-    // More work
 }
 ```
 
-## Performance Considerations
+### Nested Measurements
 
-- MethodWatch adds minimal overhead to method execution
-- Parameter serialization is optimized for common types
-- Circular references are handled safely
-- Logging is asynchronous and non-blocking
+```csharp
+public void NestedOperations()
+{
+    using (MethodWatch.Measure("OuterOperation"))
+    {
+        // Some work
+        using (MethodWatch.Measure("InnerOperation"))
+        {
+            // Inner work
+        }
+        // More work
+    }
+}
+```
+
+## Logging Output
+
+MethodWatch provides clear and concise logging output:
+
+```
+TestController.SimpleMethod completed in 50.23ms
+TestController.MethodWithParams(name="test", value=42) completed in 75.45ms
+TestController.ComplexOperation completed in 123.67ms
+```
 
 ## Contributing
 
