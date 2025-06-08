@@ -1,7 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
-using Microsoft.Extensions.Logging;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace MethodWatch;
 
@@ -12,6 +13,7 @@ public static class MethodWatch
 {
     private static ILogger? _logger;
     private static bool _enableStatistics = true;
+    private static readonly ConcurrentDictionary<string, MethodStats> _stats = new();
 
     public static void Initialize(ILoggerFactory loggerFactory, bool enableStatistics = true)
     {
@@ -21,11 +23,50 @@ public static class MethodWatch
 
     public static bool IsStatisticsEnabled() => _enableStatistics;
 
+    public static void RecordExecution(string methodName, long executionTime, long threshold, bool isSuccess, string? error = null)
+    {
+        if (!_enableStatistics) return;
+
+        var stats = _stats.GetOrAdd(methodName, _ => new MethodStats { Threshold = threshold });
+        stats.TotalExecutions++;
+        stats.TotalTime += executionTime;
+        stats.LastExecutionTime = executionTime;
+        stats.LastExecution = DateTime.UtcNow;
+
+        if (executionTime < stats.MinTime) stats.MinTime = executionTime;
+        if (executionTime > stats.MaxTime) stats.MaxTime = executionTime;
+        if (executionTime > threshold) stats.ExceededThresholdCount++;
+
+        if (!isSuccess)
+        {
+            stats.TotalFailures++;
+            stats.LastError = error;
+        }
+    }
+
+    public static MethodStats? GetStats(string methodName)
+    {
+        return _enableStatistics ? _stats.GetValueOrDefault(methodName) : null;
+    }
+
+    public static MethodStats[] GetAllStats()
+    {
+        return _enableStatistics ? _stats.Values.ToArray() : Array.Empty<MethodStats>();
+    }
+
+    public static void ClearStats()
+    {
+        if (_enableStatistics)
+        {
+            _stats.Clear();
+        }
+    }
+
     /// <summary>
     /// Measures the execution time of a code block.
     /// </summary>
-    /// <param name="customName">Optional custom name to identify this measurement in logs. If not provided, the calling method name will be used.</param>
-    /// <param name="thresholdMilliseconds">Optional threshold in milliseconds. If execution time exceeds this threshold, it will be marked as slow.</param>
+    /// <param name="methodName">The name of the method to measure.</param>
+    /// <param name="threshold">Optional threshold in milliseconds. If execution time exceeds this threshold, it will be marked as slow.</param>
     /// <returns>A disposable object that measures the execution time when disposed.</returns>
     /// <example>
     /// <code>
@@ -35,59 +76,21 @@ public static class MethodWatch
     /// }
     /// </code>
     /// </example>
-    public static IDisposable Measure(string? customName = null, long thresholdMilliseconds = 0)
+    public static IDisposable Measure(string methodName, long threshold = 0)
     {
-        // Get the stack trace
-        var stackTrace = new StackTrace();
-        
-        // Look for the first non-MethodWatch frame
-        string className = "Unknown";
-        string methodName = customName ?? "Unknown";
-        
-        for (int i = 0; i < stackTrace.FrameCount; i++)
-        {
-            var frame = stackTrace.GetFrame(i);
-            var method = frame?.GetMethod();
-            var declaringType = method?.DeclaringType;
-            
-            if (declaringType != null && declaringType.Namespace != "MethodWatch")
-            {
-                className = declaringType.Name;
-                if (customName == null)
-                {
-                    methodName = method?.Name ?? "Unknown";
-                    // Clean up method name
-                    if (methodName.Contains("<>"))
-                    {
-                        methodName = "AnonymousMethod";
-                    }
-                    else if (methodName.Contains("__"))
-                    {
-                        methodName = methodName.Split('_')[0];
-                    }
-                }
-                break;
-            }
-        }
-        
-        Console.WriteLine($"MethodWatch: Starting measurement for {className}.{methodName} (Custom: {customName}, Threshold: {thresholdMilliseconds}ms)");
-        return new MethodWatchScope(className, methodName, customName, thresholdMilliseconds);
+        return new MethodWatchScope(methodName, threshold);
     }
 
     private class MethodWatchScope : IDisposable
     {
-        private readonly string _className;
         private readonly string _methodName;
-        private readonly string? _customName;
-        private readonly long? _thresholdMilliseconds;
+        private readonly long _thresholdMilliseconds;
         private readonly Stopwatch _stopwatch;
         private bool _isException;
 
-        public MethodWatchScope(string className, string methodName, string? customName = null, long? thresholdMilliseconds = null)
+        public MethodWatchScope(string methodName, long thresholdMilliseconds)
         {
-            _className = className;
             _methodName = methodName;
-            _customName = customName;
             _thresholdMilliseconds = thresholdMilliseconds;
             _stopwatch = Stopwatch.StartNew();
         }
@@ -100,10 +103,10 @@ public static class MethodWatch
             // Record statistics only if enabled
             if (_enableStatistics)
             {
-                MethodWatchStatistics.RecordExecution(_className, _methodName, elapsed, _isException, _customName, _thresholdMilliseconds);
+                RecordExecution(_methodName, elapsed, _thresholdMilliseconds, !_isException);
             }
             
-            Console.WriteLine($"MethodWatch: {_className}.{_methodName} completed in {elapsed}ms (Custom: {_customName}, Threshold: {_thresholdMilliseconds}ms)");
+            Console.WriteLine($"MethodWatch: {_methodName} completed in {elapsed}ms (Threshold: {_thresholdMilliseconds}ms)");
         }
 
         public void SetException()
@@ -111,4 +114,18 @@ public static class MethodWatch
             _isException = true;
         }
     }
+}
+
+public class MethodStats
+{
+    public long TotalExecutions { get; set; }
+    public long TotalFailures { get; set; }
+    public long TotalTime { get; set; }
+    public long MinTime { get; set; } = long.MaxValue;
+    public long MaxTime { get; set; }
+    public long LastExecutionTime { get; set; }
+    public DateTime LastExecution { get; set; }
+    public string? LastError { get; set; }
+    public long Threshold { get; set; }
+    public long ExceededThresholdCount { get; set; }
 } 

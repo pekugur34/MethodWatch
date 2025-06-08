@@ -16,6 +16,11 @@ dotnet add package MethodWatch
 2. Initialize in your application:
 ```csharp
 // In Program.cs
+var loggerFactory = LoggerFactory.Create(builder =>
+{
+    builder.AddConsole();
+    builder.SetMinimumLevel(LogLevel.Information);
+});
 MethodWatch.MethodWatch.Initialize(loggerFactory, enableStatistics: true);
 ```
 
