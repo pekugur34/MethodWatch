@@ -52,8 +52,8 @@ services.AddMethodWatch(options =>
 {
     options.EnableStatistics = true;        // Enable performance statistics
     options.EnableWebUI = true;             // Enable web monitoring UI
-    options.StatisticsPort = 5001;          // Port for statistics server
-    options.WebUIPort = 5002;               // Port for web UI
+    options.StatisticsPort = 7000;          // Port for statistics (HTTPS)
+    options.WebUIPort = 7000;               // Port for web UI (HTTPS)
     options.StatisticsEndpoint = "/stats";  // Endpoint for statistics
     options.WebUIEndpoint = "/methodwatch"; // Endpoint for web UI
 });
@@ -76,14 +76,14 @@ public void YourMethod() { }
 
 If enabled, MethodWatch provides a web interface to monitor method executions in real-time. Access it at:
 ```
-http://localhost:5002/methodwatch
+https://localhost:7000/methodwatch
 ```
 
 ## Statistics API
 
 MethodWatch exposes a statistics API endpoint that provides performance metrics:
 ```
-http://localhost:5001/stats
+https://localhost:7000/stats
 ```
 
 ## Best Practices
