@@ -1,162 +1,102 @@
 # MethodWatch
 
-[![NuGet Version](https://img.shields.io/nuget/v/MethodWatch.svg)](https://www.nuget.org/packages/MethodWatch)
-[![License](https://img.shields.io/github/license/yourusername/MethodWatch.svg)](LICENSE)
-[![.NET](https://img.shields.io/badge/.NET-9.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/9.0)
+MethodWatch is a lightweight performance monitoring library for .NET applications that helps you track method execution times and identify performance bottlenecks.
 
-A lightweight .NET library for method execution time monitoring and logging. MethodWatch provides both automatic and manual method timing capabilities with customizable thresholds and real-time statistics.
+## Features
 
-## Quick Start
+- 🚀 Simple attribute-based method monitoring
+- 📊 Real-time statistics and performance metrics
+- 🔍 Detailed execution logs with parameters and results
+- ⚡ Low overhead with configurable thresholds
+- 🎯 Support for both synchronous and asynchronous methods
+- 🌐 Built-in web UI for monitoring (optional)
+- 🔄 Support for ASP.NET Core controllers
 
+## Installation
 
-1. Install the package:
 ```bash
 dotnet add package MethodWatch
 ```
 
-2. Initialize in your application:
+## Quick Start
+
+1. Add the MethodWatch service to your application:
+
 ```csharp
-// In Program.cs
-var loggerFactory = LoggerFactory.Create(builder =>
+// In Program.cs or Startup.cs
+builder.Services.AddMethodWatch(options =>
 {
-    builder.AddConsole();
-    builder.SetMinimumLevel(LogLevel.Information);
+    options.EnableStatistics = true;
+    options.EnableWebUI = true; // Optional: enables the web monitoring UI
 });
-MethodWatch.MethodWatch.Initialize(loggerFactory, enableStatistics: true);
 ```
 
-3. Use the attribute to monitor methods:
+2. Use the `[MethodWatch]` attribute to monitor methods:
+
 ```csharp
-[MethodWatch(100)] // Log if execution takes longer than 100ms
-public void MyMethod()
+public class ExampleService
 {
-    // Your code here
+    [MethodWatch(thresholdMs: 100)] // Log if execution takes more than 100ms
+    public string ProcessData(string input)
+    {
+        // Your method implementation
+        return result;
+    }
 }
 ```
 
-4. Or use manual timing:
+## Configuration Options
+
 ```csharp
-using (MethodWatch.Measure("CustomOperation", 50))
+services.AddMethodWatch(options =>
 {
-    // Your code here
-}
+    options.EnableStatistics = true;        // Enable performance statistics
+    options.EnableWebUI = true;             // Enable web monitoring UI
+    options.StatisticsPort = 5001;          // Port for statistics server
+    options.WebUIPort = 5002;               // Port for web UI
+    options.StatisticsEndpoint = "/stats";  // Endpoint for statistics
+    options.WebUIEndpoint = "/methodwatch"; // Endpoint for web UI
+});
 ```
 
-## Key Features
+## Attribute Options
 
-### 🚀 Automatic Method Timing
 ```csharp
-[MethodWatch(100)]
-public void SlowOperation()
-{
-    Thread.Sleep(200); // Will be logged as slow
-}
+[MethodWatch(
+    thresholdMs: 100,    // Log if execution takes more than 100ms
+    name: "CustomName",  // Optional custom name for the method
+    logParameters: true, // Log method parameters
+    logResult: true,     // Log method result
+    logStatistics: true  // Log performance statistics
+)]
+public void YourMethod() { }
 ```
-
-### ⚡ Manual Timing
-```csharp
-using (MethodWatch.Measure("CustomOperation", 50))
-{
-    // Your code here
-}
-```
-
-### 📊 Real-time Statistics
-- Track execution times
-- Monitor min/max values
-- View failure rates
-- Web UI for visualization
-
-### ⚙️ Configurable
-```json
-{
-  "MethodWatch": {
-    "EnableStatistics": false
-  }
-}
-```
-
-### 🔍 Performance Optimization
-- Disable statistics when not needed
-- Minimal memory footprint
-- Efficient logging
 
 ## Web UI
 
-Add to your ASP.NET Core application:
-```csharp
-app.UseStaticFiles();
-app.MapFallbackToFile("methodwatch.html");
+If enabled, MethodWatch provides a web interface to monitor method executions in real-time. Access it at:
+```
+http://localhost:5002/methodwatch
 ```
 
-Access at `/methodwatch.html` to see:
-- Real-time statistics
-- Search and filter methods
-- Sort by various metrics
-- Color-coded performance indicators
+## Statistics API
 
-## Examples
-
-### Basic Usage
-```csharp
-[MethodWatch(0)]
-public void SimpleMethod()
-{
-    // Method implementation
-}
+MethodWatch exposes a statistics API endpoint that provides performance metrics:
+```
+http://localhost:5001/stats
 ```
 
-### With Threshold
-```csharp
-[MethodWatch(100)]
-public void MethodWithThreshold()
-{
-    // Method implementation
-}
-```
+## Best Practices
 
-### Nested Measurements
-```csharp
-public void NestedOperations()
-{
-    using (MethodWatch.Measure("OuterOperation", 200))
-    {
-        using (MethodWatch.Measure("InnerOperation", 50))
-        {
-            // Inner work
-        }
-    }
-}
-```
+1. Set appropriate thresholds based on your application's requirements
+2. Enable parameter and result logging only when needed
+3. Use the web UI for development and debugging
+4. Consider disabling statistics in production if not needed
 
-### Parallel Operations
-```csharp
-[MethodWatch(0)]
-public async Task ParallelOperations()
-{
-    using (MethodWatch.Measure("MainOperation", 200))
-    {
-        var tasks = new List<Task>();
-        for (int i = 0; i < 10; i++)
-        {
-            tasks.Add(Task.Run(async () =>
-            {
-                using (MethodWatch.Measure($"ParallelTask_{i}", 100))
-                {
-                    await Task.Delay(Random.Shared.Next(50, 300));
-                }
-            }));
-        }
-        await Task.WhenAll(tasks);
-    }
-}
-```
+## Contributing
 
-## Requirements
-
-- .NET 9.0 or later
-- For Web UI: ASP.NET Core
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details. 
