@@ -109,20 +109,14 @@ namespace MethodWatch.SourceGenerator
                     sourceBuilder.Append("                ").Append(methodName).Append("(").Append(argumentList).AppendLine(");");
                     sourceBuilder.AppendLine("                sw.Stop();");
                     sourceBuilder.AppendLine($"                var elapsedMs = sw.Elapsed.TotalMilliseconds;");
-                    sourceBuilder.AppendLine($"                if (elapsedMs >= {thresholdMilliseconds})");
-                    sourceBuilder.AppendLine("                {");
-                    sourceBuilder.Append("                    _logger.LogInformation(\"MethodWatch: ").Append(methodName).AppendLine($"_Watched completed in {{elapsedMs:F2}} ms (threshold: {thresholdMilliseconds} ms)\");");
-                    sourceBuilder.AppendLine("                }");
+                    sourceBuilder.AppendLine($"                MethodWatch.RecordExecution(\"{methodName}\", (long)elapsedMs, {thresholdMilliseconds}, true);");
                 }
                 else
                 {
                     sourceBuilder.Append("                var result = ").Append(methodName).Append("(").Append(argumentList).AppendLine(");");
                     sourceBuilder.AppendLine("                sw.Stop();");
                     sourceBuilder.AppendLine($"                var elapsedMs = sw.Elapsed.TotalMilliseconds;");
-                    sourceBuilder.AppendLine($"                if (elapsedMs >= {thresholdMilliseconds})");
-                    sourceBuilder.AppendLine("                {");
-                    sourceBuilder.Append("                    _logger.LogInformation(\"MethodWatch: ").Append(methodName).AppendLine($"_Watched completed in {{elapsedMs:F2}} ms (threshold: {thresholdMilliseconds} ms)\");");
-                    sourceBuilder.AppendLine("                }");
+                    sourceBuilder.AppendLine($"                MethodWatch.RecordExecution(\"{methodName}\", (long)elapsedMs, {thresholdMilliseconds}, true);");
                     sourceBuilder.AppendLine("                return result;");
                 }
 

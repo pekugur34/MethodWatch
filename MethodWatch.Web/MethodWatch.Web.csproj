@@ -1,5 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>true</IsPackable>
+    <PackageId>MethodWatch.Web</PackageId>
+    <Version>1.0.2</Version>
+    <Authors>MethodWatch</Authors>
+    <Description>Web interface for MethodWatch statistics</Description>
+    <PackageTags>methodwatch;web;statistics</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\MethodWatch\MethodWatch.csproj" />
     <ProjectReference Include="..\MethodWatch.SourceGenerator\MethodWatch.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
@@ -10,10 +24,8 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.4" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="wwwroot\methodwatch.html" Pack="true" PackagePath="content\wwwroot" />
+  </ItemGroup>
 
 </Project>

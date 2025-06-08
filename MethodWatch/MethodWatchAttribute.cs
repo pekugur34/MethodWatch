@@ -7,65 +7,113 @@ using System.Text.Json;
 namespace MethodWatch;
 
 [AttributeUsage(AttributeTargets.Method)]
-public class MethodWatchAttribute : ActionFilterAttribute
+public class MethodWatchAttribute : Attribute, IActionFilter
 {
-    private ILogger? _logger;
-    private string _methodName = "Unknown";
-    private readonly long _thresholdMilliseconds;
+    public string? Name { get; set; }
+    public long ThresholdMs { get; set; } = 1000;
+    public bool LogParameters { get; set; } = true;
+    public bool LogResult { get; set; } = true;
+    public bool LogStatistics { get; set; } = true;
 
-    public MethodWatchAttribute()
+    public MethodWatchAttribute() { }
+
+    public MethodWatchAttribute(string name)
     {
-        _thresholdMilliseconds = 0;
+        Name = name;
     }
 
-    public MethodWatchAttribute(long thresholdMilliseconds)
+    public MethodWatchAttribute(long thresholdMs)
     {
-        _thresholdMilliseconds = thresholdMilliseconds;
+        ThresholdMs = thresholdMs;
     }
 
-    public override void OnActionExecuting(ActionExecutingContext context)
+    public MethodWatchAttribute(string name, long thresholdMs)
     {
-        _logger = context.HttpContext.RequestServices.GetService<ILogger<MethodWatchAttribute>>();
-        _methodName = context.ActionDescriptor.RouteValues["action"] ?? "Unknown";
-        
-        var className = context.Controller.GetType().Name;
-        var parameters = context.ActionArguments
-            .Select(x => $"{x.Key}={x.Value}")
-            .ToList();
-
-        var logMessage = $"{className}.{_methodName}({string.Join(", ", parameters)})";
-        _logger?.LogInformation(logMessage);
+        Name = name;
+        ThresholdMs = thresholdMs;
     }
 
-    public override void OnActionExecuted(ActionExecutedContext context)
+    public void OnActionExecuting(ActionExecutingContext context)
     {
-        if (_logger == null) return;
+        context.HttpContext.Items["MethodWatch_StartTime"] = DateTime.UtcNow.Ticks;
+        context.HttpContext.Items["MethodWatch_Arguments"] = context.ActionArguments;
+    }
 
-        var className = context.Controller.GetType().Name;
-        var elapsed = context.HttpContext.Items["MethodWatchStartTime"] != null
-            ? (DateTime.UtcNow - (DateTime)context.HttpContext.Items["MethodWatchStartTime"]!).TotalMilliseconds
-            : 0;
+    public void OnActionExecuted(ActionExecutedContext context)
+    {
+        if (context.HttpContext.Items.TryGetValue("MethodWatch_StartTime", out var startTimeObj) && startTimeObj is long startTime)
+        {
+            var elapsedMs = (DateTime.UtcNow.Ticks - startTime) / TimeSpan.TicksPerMillisecond;
+            var className = context.Controller.GetType().Name;
+            var methodName = context.ActionDescriptor.RouteValues["action"] ?? "Unknown";
+            var displayName = $"{className}.{methodName}";
 
-        // Record statistics only if enabled
+            if (MethodWatch.IsStatisticsEnabled())
+            {
+                MethodWatch.RecordExecution(displayName, elapsedMs, ThresholdMs, context.Exception == null);
+            }
+
+            if (elapsedMs > ThresholdMs)
+            {
+                var logger = MethodWatch.GetLogger();
+                if (logger != null)
+                {
+                    var logMessage = $"[MethodWatch] {displayName} took {elapsedMs}ms (threshold: {ThresholdMs}ms)";
+                    
+                    if (LogParameters && context.HttpContext.Items.TryGetValue("MethodWatch_Arguments", out var argsObj) && argsObj is IDictionary<string, object?> args)
+                    {
+                        logMessage += $"\nParameters: {MethodWatchHelper.SafeSerialize(args)}";
+                    }
+                    
+                    if (LogResult && context.Result != null)
+                    {
+                        logMessage += $"\nResult: {MethodWatchHelper.SafeSerialize(context.Result)}";
+                    }
+
+                    if (LogStatistics && MethodWatch.IsStatisticsEnabled())
+                    {
+                        var stats = MethodWatch.GetMethodStats(displayName);
+                        logMessage += $"\nStatistics: {MethodWatchHelper.SafeSerialize(stats)}";
+                    }
+
+                    logger.LogWarning(logMessage);
+                }
+            }
+        }
+    }
+
+    public void LogMethodCall(string methodName, object?[]? parameters, object? result, long executionTimeMs)
+    {
         if (MethodWatch.IsStatisticsEnabled())
         {
-            MethodWatchStatistics.RecordExecution(
-                className,
-                _methodName,
-                (long)elapsed,
-                context.Exception != null,
-                null,
-                _thresholdMilliseconds
-            );
+            MethodWatch.RecordExecution(methodName, executionTimeMs, ThresholdMs, true);
         }
 
-        if (context.Exception != null)
+        if (executionTimeMs > ThresholdMs)
         {
-            _logger.LogError(context.Exception, $"{className}.{_methodName} failed after {elapsed:F2}ms");
-        }
-        else
-        {
-            _logger.LogInformation($"{className}.{_methodName} completed in {elapsed:F2}ms");
+            var logger = MethodWatch.GetLogger();
+            if (logger != null)
+            {
+                var logMessage = $"[MethodWatch] {methodName} took {executionTimeMs}ms (threshold: {ThresholdMs}ms)";
+                
+                if (LogParameters && parameters != null)
+                {
+                    logMessage += $"\nParameters: {MethodWatchHelper.SafeSerialize(parameters)}";
+                }
+                
+                if (LogResult)
+                {
+                    logMessage += $"\nResult: {MethodWatchHelper.SafeSerialize(result)}";
+                }
+
+                if (LogStatistics && MethodWatch.IsStatisticsEnabled())
+                {
+                    var stats = MethodWatch.GetMethodStats(methodName);
+                    logMessage += $"\nStatistics: {MethodWatchHelper.SafeSerialize(stats)}";
+                }
+
+                logger.LogWarning(logMessage);
+            }
         }
     }
 } 

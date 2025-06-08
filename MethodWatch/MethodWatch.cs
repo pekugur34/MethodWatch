@@ -23,25 +23,25 @@ public static class MethodWatch
 
     public static bool IsStatisticsEnabled() => _enableStatistics;
 
+    public static ILogger? GetLogger() => _logger;
+
+    public static void AddExecution(string methodName, long executionTimeMs)
+    {
+        if (!_enableStatistics) return;
+        var stats = _stats.GetOrAdd(methodName, _ => new MethodStats());
+        stats.AddExecution(executionTimeMs);
+    }
+
+    public static MethodStats GetMethodStats(string methodName)
+    {
+        return _stats.GetOrAdd(methodName, _ => new MethodStats());
+    }
+
     public static void RecordExecution(string methodName, long executionTime, long threshold, bool isSuccess, string? error = null)
     {
         if (!_enableStatistics) return;
-
-        var stats = _stats.GetOrAdd(methodName, _ => new MethodStats { Threshold = threshold });
-        stats.TotalExecutions++;
-        stats.TotalTime += executionTime;
-        stats.LastExecutionTime = executionTime;
-        stats.LastExecution = DateTime.UtcNow;
-
-        if (executionTime < stats.MinTime) stats.MinTime = executionTime;
-        if (executionTime > stats.MaxTime) stats.MaxTime = executionTime;
-        if (executionTime > threshold) stats.ExceededThresholdCount++;
-
-        if (!isSuccess)
-        {
-            stats.TotalFailures++;
-            stats.LastError = error;
-        }
+        var stats = _stats.GetOrAdd(methodName, _ => new MethodStats());
+        stats.AddExecution(executionTime);
     }
 
     public static MethodStats? GetStats(string methodName)
@@ -114,18 +114,10 @@ public static class MethodWatch
             _isException = true;
         }
     }
-}
 
-public class MethodStats
-{
-    public long TotalExecutions { get; set; }
-    public long TotalFailures { get; set; }
-    public long TotalTime { get; set; }
-    public long MinTime { get; set; } = long.MaxValue;
-    public long MaxTime { get; set; }
-    public long LastExecutionTime { get; set; }
-    public DateTime LastExecution { get; set; }
-    public string? LastError { get; set; }
-    public long Threshold { get; set; }
-    public long ExceededThresholdCount { get; set; }
+    public static Dictionary<string, MethodStats> GetAllMethodStats()
+    {
+        if (!_enableStatistics) return new Dictionary<string, MethodStats>();
+        return _stats.ToDictionary(x => x.Key, x => x.Value);
+    }
 } 

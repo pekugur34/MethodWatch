@@ -1,27 +1,36 @@
 using System.Text.Json;
 
-namespace MethodWatch
-{
-    public static class MethodWatchHelper
-    {
-        private static readonly JsonSerializerOptions _jsonOptions = new()
-        {
-            WriteIndented = false,
-            MaxDepth = 2,
-            ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles
-        };
+namespace MethodWatch;
 
-        public static string SafeSerialize(object value)
+public static class MethodWatchHelper
+{
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        WriteIndented = true,
+        MaxDepth = 10
+    };
+
+    public static string SafeSerialize(object? obj)
+    {
+        if (obj == null) return "null";
+        
+        try
         {
-            if (value == null) return "null";
-            try
-            {
-                return JsonSerializer.Serialize(value, _jsonOptions);
-            }
-            catch
-            {
-                return value.ToString() ?? "<ToString failed>";
-            }
+            return JsonSerializer.Serialize(obj, _jsonOptions);
         }
+        catch (Exception ex)
+        {
+            return $"<Error serializing: {ex.Message}>";
+        }
+    }
+
+    public static string GetMethodName(string methodName, string? customName)
+    {
+        return customName ?? methodName;
+    }
+
+    public static long GetElapsedMilliseconds(long startTicks)
+    {
+        return (DateTime.UtcNow.Ticks - startTicks) / TimeSpan.TicksPerMillisecond;
     }
 } 

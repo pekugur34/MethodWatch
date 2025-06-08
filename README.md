@@ -1,218 +1,126 @@
 # MethodWatch
 
-A lightweight .NET library for method execution time monitoring and logging. MethodWatch provides both automatic and manual method timing capabilities with customizable thresholds and real-time statistics.
-
-## Features
-
-- **Automatic Method Timing**: Use the `[MethodWatch]` attribute to automatically time method execution
-- **Manual Method Timing**: Use the `MethodWatch.Measure()` method for manual timing of code blocks
-- **Customizable Thresholds**: Set performance thresholds for each method
-- **Real-time Statistics**: Track execution times, min/max values, and failure rates
-- **Web UI**: Visualize method performance with a built-in web interface
-- **Exception Handling**: Automatic timing of methods that throw exceptions
-- **Configurable Statistics**: Enable/disable statistics collection for better performance
+A lightweight .NET library for method execution time monitoring and logging with customizable thresholds and real-time statistics.
 
 ## Installation
 
+### Core Package
 ```bash
 dotnet add package MethodWatch
 ```
 
+### Web Interface Package (Optional)
+```bash
+dotnet add package MethodWatch.Web
+```
+
 ## Usage
 
-### Basic Setup
+### 1. Basic Usage with Core Package
 
-Add MethodWatch to your application:
+```csharp
+// In Program.cs or Startup.cs
+using MethodWatch;
+
+// Initialize with logging
+builder.Services.AddLogging();
+MethodWatch.Initialize(builder.Services.BuildServiceProvider().GetRequiredService<ILoggerFactory>());
+
+// Optionally enable statistics
+MethodWatch.Initialize(builder.Services.BuildServiceProvider().GetRequiredService<ILoggerFactory>(), enableStatistics: true);
+```
+
+Add the attribute to methods you want to monitor:
+
+```csharp
+[MethodWatch]
+public async Task<string> GetDataAsync()
+{
+    // Your method implementation
+}
+
+// With custom threshold (in milliseconds)
+[MethodWatch(thresholdMs: 500)]
+public async Task ProcessDataAsync()
+{
+    // Your method implementation
+}
+
+// With custom name and threshold
+[MethodWatch("ProcessData", 500)]
+public async Task ProcessDataAsync()
+{
+    // Your method implementation
+}
+```
+
+### 2. Using the Web Interface
+
+If you want to visualize method execution statistics, add the web interface:
 
 ```csharp
 // In Program.cs
-MethodWatch.MethodWatch.Initialize(loggerFactory, enableStatistics: true);
+using MethodWatch.Web;
+
+// Add MethodWatch services
+builder.Services.AddMethodWatch();
+
+// Add the web interface
+builder.Services.AddMethodWatchWeb();
+
+var app = builder.Build();
+
+// Map the web interface endpoint
+app.MapMethodWatchWeb();
 ```
 
-### Automatic Method Timing
+Then access the statistics dashboard at:
+```
+http://your-app/methodwatch.html
+```
 
-Add the `[MethodWatch]` attribute to any method you want to monitor:
+### 3. Advanced Configuration
+
+#### Core Package Options
 
 ```csharp
-// Basic usage - all times will be logged
-[MethodWatch(0)]
-public void FastOperation()
+[MethodWatch(
+    Name = "CustomName",           // Custom name for the method
+    ThresholdMs = 1000,            // Warning threshold in milliseconds
+    LogParameters = true,          // Log method parameters
+    LogResult = true,              // Log method result
+    LogStatistics = true           // Log statistics with each execution
+)]
+public async Task MyMethod()
 {
-    // Method implementation
-}
-
-// Set threshold to 100ms - times >= 100ms will be marked as slow
-[MethodWatch(100)]
-public void SlowOperation()
-{
-    Thread.Sleep(200);
-}
-
-// Set threshold to 50ms - times >= 50ms will be marked as slow
-[MethodWatch(50)]
-public void RandomOperation()
-{
-    Thread.Sleep(Random.Shared.Next(50, 300));
+    // Your method implementation
 }
 ```
 
-### Manual Method Timing
+#### Web Interface Features
 
-Use the `MethodWatch.Measure()` method to time specific code blocks:
+The web interface provides:
+- Real-time method execution statistics
+- Execution time trends
+- Success/failure rates
+- Parameter and result logging
+- Customizable thresholds
 
-```csharp
-// Simple usage with custom name
-using (MethodWatch.Measure("CustomOperation"))
-{
-    // Your code here
-}
+## Features
 
-// With threshold - times >= 100ms will be marked as slow
-using (MethodWatch.Measure("CustomOperation", 100))
-{
-    // Your code here
-}
+- Method execution time monitoring
+- Customizable warning thresholds
+- Parameter and result logging
+- Real-time statistics
+- Web-based dashboard
+- Lightweight and non-intrusive
+- Thread-safe implementation
 
-// Nested measurements with different thresholds
-using (MethodWatch.Measure("OuterOperation", 200))
-{
-    // Outer operation code
-    using (MethodWatch.Measure("InnerOperation", 50))
-    {
-        // Inner operation code
-    }
-}
-```
+## Requirements
 
-### Web UI
-
-MethodWatch includes a web interface to visualize method performance:
-
-1. Add the web UI to your project:
-```csharp
-app.UseStaticFiles();
-app.MapFallbackToFile("methodwatch.html");
-```
-
-2. Access the UI at `/methodwatch.html`
-
-Features:
-- Real-time statistics updates
-- Search and filter methods
-- Sort by various metrics
-- Color-coded performance indicators
-- Pagination for large datasets
-
-### Configuration
-
-#### Enable/Disable Statistics
-
-Control statistics collection through configuration:
-
-```json
-{
-  "MethodWatch": {
-    "EnableStatistics": false
-  }
-}
-```
-
-Or in code:
-```csharp
-MethodWatch.MethodWatch.Initialize(loggerFactory, enableStatistics: false);
-```
-
-#### Logging Configuration
-
-Configure logging to be more concise:
-```csharp
-builder.Logging.AddConsole(options =>
-{
-    options.IncludeScopes = false;
-    options.TimestampFormat = "[HH:mm:ss] ";
-});
-```
-
-## Examples
-
-### Basic Usage
-
-```csharp
-[MethodWatch(0)]
-public void SimpleMethod()
-{
-    // Method implementation
-}
-```
-
-### With Threshold
-
-```csharp
-[MethodWatch(100)]
-public void MethodWithThreshold()
-{
-    // Method implementation
-}
-```
-
-### Manual Timing
-
-```csharp
-public void ComplexOperation()
-{
-    using (MethodWatch.Measure("ComplexOperation", 50))
-    {
-        // Complex operation implementation
-    }
-}
-```
-
-### Nested Measurements
-
-```csharp
-public void NestedOperations()
-{
-    using (MethodWatch.Measure("OuterOperation", 200))
-    {
-        // Some work
-        using (MethodWatch.Measure("InnerOperation", 50))
-        {
-            // Inner work
-        }
-        // More work
-    }
-}
-```
-
-### Parallel Operations
-
-```csharp
-[MethodWatch(0)]
-public async Task ParallelOperations()
-{
-    using (MethodWatch.Measure("MainOperation", 200))
-    {
-        var tasks = new List<Task>();
-        for (int i = 0; i < 10; i++)
-        {
-            var taskId = i;
-            tasks.Add(Task.Run(async () =>
-            {
-                using (MethodWatch.Measure($"ParallelTask_{taskId}", 100))
-                {
-                    await Task.Delay(Random.Shared.Next(50, 300));
-                }
-            }));
-        }
-        await Task.WhenAll(tasks);
-    }
-}
-```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+- .NET 9.0 or later
+- For web interface: ASP.NET Core
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+MIT License 

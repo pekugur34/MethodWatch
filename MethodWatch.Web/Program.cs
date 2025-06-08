@@ -47,5 +47,4 @@ app.MapFallbackToFile("methodwatch.html");
 
 app.UseAuthorization();
 app.MapControllers();
-
 app.Run();
