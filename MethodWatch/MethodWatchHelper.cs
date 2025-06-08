@@ -4,18 +4,19 @@ namespace MethodWatch
 {
     public static class MethodWatchHelper
     {
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            WriteIndented = false,
+            MaxDepth = 2,
+            ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles
+        };
+
         public static string SafeSerialize(object value)
         {
             if (value == null) return "null";
             try
             {
-                var options = new JsonSerializerOptions
-                {
-                    WriteIndented = false,
-                    MaxDepth = 2,
-                    ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles
-                };
-                return JsonSerializer.Serialize(value, options);
+                return JsonSerializer.Serialize(value, _jsonOptions);
             }
             catch
             {

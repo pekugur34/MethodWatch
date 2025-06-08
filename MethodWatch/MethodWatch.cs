@@ -12,10 +12,10 @@ namespace MethodWatch;
 public static class MethodWatch
 {
     private static ILogger? _logger;
-    private static bool _enableStatistics = true;
+    private static bool _enableStatistics = false;
     private static readonly ConcurrentDictionary<string, MethodStats> _stats = new();
 
-    public static void Initialize(ILoggerFactory loggerFactory, bool enableStatistics = true)
+    public static void Initialize(ILoggerFactory loggerFactory, bool enableStatistics = false)
     {
         _logger = loggerFactory.CreateLogger("MethodWatch");
         _enableStatistics = enableStatistics;
