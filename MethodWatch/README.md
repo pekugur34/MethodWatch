@@ -8,6 +8,7 @@ A lightweight .NET library for method execution time monitoring and logging. Met
 
 ## Quick Start
 
+
 1. Install the package:
 ```bash
 dotnet add package MethodWatch
