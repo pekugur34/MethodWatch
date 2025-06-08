@@ -91,10 +91,10 @@ MethodWatch includes a web interface to visualize method performance:
 1. Add the web UI to your project:
 ```csharp
 app.UseStaticFiles();
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("methodwatch.html");
 ```
 
-2. Access the UI at `/index.html`
+2. Access the UI at `/methodwatch.html`
 
 Features:
 - Real-time statistics updates

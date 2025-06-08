@@ -47,7 +47,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 // Add default route for index.html
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("methodwatch.html");
 
 app.UseAuthorization();
 app.MapControllers();
