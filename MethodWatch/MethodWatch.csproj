@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
     <PackageId>MethodWatch</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Authors>MethodWatch</Authors>
     <Description>A lightweight .NET library for method execution time monitoring and logging with customizable thresholds and real-time statistics.</Description>
     <PackageTags>performance;monitoring;logging;method-timing;statistics</PackageTags>
