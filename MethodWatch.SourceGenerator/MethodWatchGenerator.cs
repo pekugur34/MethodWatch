@@ -76,21 +76,11 @@ namespace MethodWatch.SourceGenerator
                 var attribute = methodSymbol.GetAttributes()
                     .First(attr => attr.AttributeClass?.Equals(methodWatchAttributeSymbol, SymbolEqualityComparer.Default) ?? false);
                 
-                var measureInException = true;
-                var logParameters = true;
-                var thresholdMilliseconds = 0.0;
+                var thresholdMilliseconds = 0L;
 
                 if (attribute.ConstructorArguments.Length > 0)
                 {
-                    measureInException = (bool)attribute.ConstructorArguments[0].Value!;
-                }
-                if (attribute.ConstructorArguments.Length > 1)
-                {
-                    logParameters = (bool)attribute.ConstructorArguments[1].Value!;
-                }
-                if (attribute.ConstructorArguments.Length > 2)
-                {
-                    thresholdMilliseconds = (double)attribute.ConstructorArguments[2].Value!;
+                    thresholdMilliseconds = (long)attribute.ConstructorArguments[0].Value!;
                 }
 
                 // Generate the wrapper method
@@ -109,81 +99,40 @@ namespace MethodWatch.SourceGenerator
                 sourceBuilder.AppendLine($"        public {returnType} {methodName}_Watched({parameterList})");
                 sourceBuilder.AppendLine("        {");
                 sourceBuilder.AppendLine("            var sw = Stopwatch.StartNew();");
-                
-                // Only add try-catch if measureInException is true
-                if (measureInException)
-                {
-                    sourceBuilder.AppendLine("            try");
-                    sourceBuilder.AppendLine("            {");
-                }
-
-                // Add parameter logging if enabled
-                if (logParameters && parameters.Any())
-                {
-                    sourceBuilder.Append("                _logger.LogInformation(\"MethodWatch: ").Append(methodName).Append("_Watched called with parameters: ");
-                    var paramLog = new StringBuilder(256); // Pre-allocate buffer
-                    for (int i = 0; i < parameters.Count; i++)
-                    {
-                        var p = parameters[i];
-                        if (i > 0) paramLog.Append(", ");
-                        paramLog.Append(p.Identifier.Text).Append("={MethodWatchHelper.SafeSerialize(").Append(p.Identifier.Text).Append(")}");
-                    }
-                    sourceBuilder.Append(paramLog);
-                    sourceBuilder.AppendLine("\");");
-                }
-                else
-                {
-                    sourceBuilder.Append("                _logger.LogInformation(\"MethodWatch: ").Append(methodName).AppendLine("_Watched called\");");
-                }
+                sourceBuilder.AppendLine("            try");
+                sourceBuilder.AppendLine("            {");
+                sourceBuilder.Append("                _logger.LogInformation(\"MethodWatch: ").Append(methodName).AppendLine("_Watched called\");");
 
                 // Add the method call
                 if (returnType == "void")
                 {
                     sourceBuilder.Append("                ").Append(methodName).Append("(").Append(argumentList).AppendLine(");");
                     sourceBuilder.AppendLine("                sw.Stop();");
-                    if (thresholdMilliseconds > 0)
-                    {
-                        sourceBuilder.AppendLine($"                var elapsedMs = sw.Elapsed.TotalMilliseconds;");
-                        sourceBuilder.AppendLine($"                if (elapsedMs >= {thresholdMilliseconds})");
-                        sourceBuilder.AppendLine("                {");
-                        sourceBuilder.Append("                    _logger.LogInformation(\"MethodWatch: ").Append(methodName).AppendLine($"_Watched completed in {{elapsedMs:F2}} ms (threshold: {thresholdMilliseconds:F2} ms)\");");
-                        sourceBuilder.AppendLine("                }");
-                    }
-                    else
-                    {
-                        sourceBuilder.Append("                    _logger.LogInformation(\"MethodWatch: ").Append(methodName).AppendLine("_Watched completed in {sw.Elapsed.TotalMilliseconds:F2} ms\");");
-                    }
+                    sourceBuilder.AppendLine($"                var elapsedMs = sw.Elapsed.TotalMilliseconds;");
+                    sourceBuilder.AppendLine($"                if (elapsedMs >= {thresholdMilliseconds})");
+                    sourceBuilder.AppendLine("                {");
+                    sourceBuilder.Append("                    _logger.LogInformation(\"MethodWatch: ").Append(methodName).AppendLine($"_Watched completed in {{elapsedMs:F2}} ms (threshold: {thresholdMilliseconds} ms)\");");
+                    sourceBuilder.AppendLine("                }");
                 }
                 else
                 {
                     sourceBuilder.Append("                var result = ").Append(methodName).Append("(").Append(argumentList).AppendLine(");");
                     sourceBuilder.AppendLine("                sw.Stop();");
-                    if (thresholdMilliseconds > 0)
-                    {
-                        sourceBuilder.AppendLine($"                var elapsedMs = sw.Elapsed.TotalMilliseconds;");
-                        sourceBuilder.AppendLine($"                if (elapsedMs >= {thresholdMilliseconds})");
-                        sourceBuilder.AppendLine("                {");
-                        sourceBuilder.Append("                    _logger.LogInformation(\"MethodWatch: ").Append(methodName).AppendLine($"_Watched completed in {{elapsedMs:F2}} ms (threshold: {thresholdMilliseconds:F2} ms)\");");
-                        sourceBuilder.AppendLine("                }");
-                    }
-                    else
-                    {
-                        sourceBuilder.Append("                    _logger.LogInformation(\"MethodWatch: ").Append(methodName).AppendLine("_Watched completed in {sw.Elapsed.TotalMilliseconds:F2} ms\");");
-                    }
+                    sourceBuilder.AppendLine($"                var elapsedMs = sw.Elapsed.TotalMilliseconds;");
+                    sourceBuilder.AppendLine($"                if (elapsedMs >= {thresholdMilliseconds})");
+                    sourceBuilder.AppendLine("                {");
+                    sourceBuilder.Append("                    _logger.LogInformation(\"MethodWatch: ").Append(methodName).AppendLine($"_Watched completed in {{elapsedMs:F2}} ms (threshold: {thresholdMilliseconds} ms)\");");
+                    sourceBuilder.AppendLine("                }");
                     sourceBuilder.AppendLine("                return result;");
                 }
 
-                if (measureInException)
-                {
-                    sourceBuilder.AppendLine("            }");
-                    sourceBuilder.AppendLine("            catch (Exception ex)");
-                    sourceBuilder.AppendLine("            {");
-                    sourceBuilder.AppendLine("                sw.Stop();");
-                    sourceBuilder.Append("                    _logger.LogError(ex, \"MethodWatch: ").Append(methodName).AppendLine("_Watched failed after {sw.Elapsed.TotalMilliseconds:F2} ms\");");
-                    sourceBuilder.AppendLine("                throw;");
-                    sourceBuilder.AppendLine("            }");
-                }
-
+                sourceBuilder.AppendLine("            }");
+                sourceBuilder.AppendLine("            catch (Exception ex)");
+                sourceBuilder.AppendLine("            {");
+                sourceBuilder.AppendLine("                sw.Stop();");
+                sourceBuilder.Append("                    _logger.LogError(ex, \"MethodWatch: ").Append(methodName).AppendLine("_Watched failed after {sw.Elapsed.TotalMilliseconds:F2} ms\");");
+                sourceBuilder.AppendLine("                throw;");
+                sourceBuilder.AppendLine("            }");
                 sourceBuilder.AppendLine("        }");
                 sourceBuilder.AppendLine("    }");
                 sourceBuilder.AppendLine("}");

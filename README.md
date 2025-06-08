@@ -1,14 +1,16 @@
 # MethodWatch
 
-A lightweight .NET library for method execution time monitoring and logging. MethodWatch provides both automatic and manual method timing capabilities.
+A lightweight .NET library for method execution time monitoring and logging. MethodWatch provides both automatic and manual method timing capabilities with customizable thresholds and real-time statistics.
 
 ## Features
 
 - **Automatic Method Timing**: Use the `[MethodWatch]` attribute to automatically time method execution
 - **Manual Method Timing**: Use the `MethodWatch.Measure()` method for manual timing of code blocks
-- **Customizable Logging**: Configure logging thresholds and parameter visibility
+- **Customizable Thresholds**: Set performance thresholds for each method
+- **Real-time Statistics**: Track execution times, min/max values, and failure rates
+- **Web UI**: Visualize method performance with a built-in web interface
 - **Exception Handling**: Automatic timing of methods that throw exceptions
-- **Circular Reference Handling**: Safe serialization of complex objects with circular references
+- **Configurable Statistics**: Enable/disable statistics collection for better performance
 
 ## Installation
 
@@ -18,15 +20,39 @@ dotnet add package MethodWatch
 
 ## Usage
 
+### Basic Setup
+
+Add MethodWatch to your application:
+
+```csharp
+// In Program.cs
+MethodWatch.MethodWatch.Initialize(loggerFactory, enableStatistics: true);
+```
+
 ### Automatic Method Timing
 
 Add the `[MethodWatch]` attribute to any method you want to monitor:
 
 ```csharp
-[MethodWatch]
-public void MyMethod()
+// Basic usage - all times will be logged
+[MethodWatch(0)]
+public void FastOperation()
 {
     // Method implementation
+}
+
+// Set threshold to 100ms - times >= 100ms will be marked as slow
+[MethodWatch(100)]
+public void SlowOperation()
+{
+    Thread.Sleep(200);
+}
+
+// Set threshold to 50ms - times >= 50ms will be marked as slow
+[MethodWatch(50)]
+public void RandomOperation()
+{
+    Thread.Sleep(Random.Shared.Next(50, 300));
 }
 ```
 
@@ -35,32 +61,76 @@ public void MyMethod()
 Use the `MethodWatch.Measure()` method to time specific code blocks:
 
 ```csharp
-// Simple usage - automatically uses the calling method name
-using (MethodWatch.Measure())
-{
-    // Your code here
-}
-
-// With custom name for better identification in logs
+// Simple usage with custom name
 using (MethodWatch.Measure("CustomOperation"))
 {
     // Your code here
 }
+
+// With threshold - times >= 100ms will be marked as slow
+using (MethodWatch.Measure("CustomOperation", 100))
+{
+    // Your code here
+}
+
+// Nested measurements with different thresholds
+using (MethodWatch.Measure("OuterOperation", 200))
+{
+    // Outer operation code
+    using (MethodWatch.Measure("InnerOperation", 50))
+    {
+        // Inner operation code
+    }
+}
 ```
 
-### Configuration Options
+### Web UI
 
-The `[MethodWatch]` attribute supports the following options:
+MethodWatch includes a web interface to visualize method performance:
 
+1. Add the web UI to your project:
 ```csharp
-[MethodWatch(
-    ThresholdMilliseconds = 100,  // Log only if execution takes longer than 100ms
-    LogParameters = true          // Log method parameters
-)]
-public void MyMethod(string param1, int param2)
+app.UseStaticFiles();
+app.MapFallbackToFile("index.html");
+```
+
+2. Access the UI at `/index.html`
+
+Features:
+- Real-time statistics updates
+- Search and filter methods
+- Sort by various metrics
+- Color-coded performance indicators
+- Pagination for large datasets
+
+### Configuration
+
+#### Enable/Disable Statistics
+
+Control statistics collection through configuration:
+
+```json
 {
-    // Method implementation
+  "MethodWatch": {
+    "EnableStatistics": false
+  }
 }
+```
+
+Or in code:
+```csharp
+MethodWatch.MethodWatch.Initialize(loggerFactory, enableStatistics: false);
+```
+
+#### Logging Configuration
+
+Configure logging to be more concise:
+```csharp
+builder.Logging.AddConsole(options =>
+{
+    options.IncludeScopes = false;
+    options.TimestampFormat = "[HH:mm:ss] ";
+});
 ```
 
 ## Examples
@@ -68,18 +138,18 @@ public void MyMethod(string param1, int param2)
 ### Basic Usage
 
 ```csharp
-[MethodWatch]
+[MethodWatch(0)]
 public void SimpleMethod()
 {
     // Method implementation
 }
 ```
 
-### With Parameters
+### With Threshold
 
 ```csharp
-[MethodWatch(LogParameters = true)]
-public void MethodWithParams(string name, int value)
+[MethodWatch(100)]
+public void MethodWithThreshold()
 {
     // Method implementation
 }
@@ -90,7 +160,7 @@ public void MethodWithParams(string name, int value)
 ```csharp
 public void ComplexOperation()
 {
-    using (MethodWatch.Measure("ComplexOperation"))
+    using (MethodWatch.Measure("ComplexOperation", 50))
     {
         // Complex operation implementation
     }
@@ -102,10 +172,10 @@ public void ComplexOperation()
 ```csharp
 public void NestedOperations()
 {
-    using (MethodWatch.Measure("OuterOperation"))
+    using (MethodWatch.Measure("OuterOperation", 200))
     {
         // Some work
-        using (MethodWatch.Measure("InnerOperation"))
+        using (MethodWatch.Measure("InnerOperation", 50))
         {
             // Inner work
         }
@@ -114,14 +184,29 @@ public void NestedOperations()
 }
 ```
 
-## Logging Output
+### Parallel Operations
 
-MethodWatch provides clear and concise logging output:
-
-```
-TestController.SimpleMethod completed in 50.23ms
-TestController.MethodWithParams(name="test", value=42) completed in 75.45ms
-TestController.ComplexOperation completed in 123.67ms
+```csharp
+[MethodWatch(0)]
+public async Task ParallelOperations()
+{
+    using (MethodWatch.Measure("MainOperation", 200))
+    {
+        var tasks = new List<Task>();
+        for (int i = 0; i < 10; i++)
+        {
+            var taskId = i;
+            tasks.Add(Task.Run(async () =>
+            {
+                using (MethodWatch.Measure($"ParallelTask_{taskId}", 100))
+                {
+                    await Task.Delay(Random.Shared.Next(50, 300));
+                }
+            }));
+        }
+        await Task.WhenAll(tasks);
+    }
+}
 ```
 
 ## Contributing

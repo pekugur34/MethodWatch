@@ -9,82 +9,63 @@ namespace MethodWatch;
 [AttributeUsage(AttributeTargets.Method)]
 public class MethodWatchAttribute : ActionFilterAttribute
 {
-    public bool LogParameters { get; set; } = true;
-    public double ThresholdMilliseconds { get; set; } = 0;
-
-    private string _methodName;
-    private ILogger _logger;
-    private ActionExecutingContext? _executingContext;
+    private ILogger? _logger;
+    private string _methodName = "Unknown";
+    private readonly long _thresholdMilliseconds;
 
     public MethodWatchAttribute()
     {
-        _methodName = string.Empty;
-        _logger = null!;
+        _thresholdMilliseconds = 0;
+    }
+
+    public MethodWatchAttribute(long thresholdMilliseconds)
+    {
+        _thresholdMilliseconds = thresholdMilliseconds;
     }
 
     public override void OnActionExecuting(ActionExecutingContext context)
     {
-        _methodName = context.RouteData.Values["action"]?.ToString() ?? "Unknown";
-        _logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
-            .CreateLogger("MethodWatch");
-        _executingContext = context;
-        context.HttpContext.Items["MethodWatchStartTime"] = Stopwatch.StartNew();
+        _logger = context.HttpContext.RequestServices.GetService<ILogger<MethodWatchAttribute>>();
+        _methodName = context.ActionDescriptor.RouteValues["action"] ?? "Unknown";
+        
+        var className = context.Controller.GetType().Name;
+        var parameters = context.ActionArguments
+            .Select(x => $"{x.Key}={x.Value}")
+            .ToList();
+
+        var logMessage = $"{className}.{_methodName}({string.Join(", ", parameters)})";
+        _logger?.LogInformation(logMessage);
     }
 
     public override void OnActionExecuted(ActionExecutedContext context)
     {
-        if (context.HttpContext.Items["MethodWatchStartTime"] is Stopwatch sw)
+        if (_logger == null) return;
+
+        var className = context.Controller.GetType().Name;
+        var elapsed = context.HttpContext.Items["MethodWatchStartTime"] != null
+            ? (DateTime.UtcNow - (DateTime)context.HttpContext.Items["MethodWatchStartTime"]!).TotalMilliseconds
+            : 0;
+
+        // Record statistics only if enabled
+        if (MethodWatch.IsStatisticsEnabled())
         {
-            sw.Stop();
-            var elapsed = sw.Elapsed.TotalMilliseconds;
-
-            if (context.Exception != null)
-            {
-                _logger.LogError("[ERROR] {Class}.{Method} failed after {Elapsed:F2}ms", 
-                    context.Controller.GetType().Name,
-                    _methodName,
-                    elapsed);
-            }
-            else if (ThresholdMilliseconds == 0 || elapsed >= ThresholdMilliseconds)
-            {
-                string paramString = "()";
-                if (LogParameters && _executingContext?.ActionArguments.Count > 0)
-                {
-                    var parameters = _executingContext.ActionArguments
-                        .Where(x => x.Value != null)
-                        .Select(x => $"{x.Key}={SafeSerialize(x.Value)}")
-                        .ToList();
-
-                    paramString = $"({string.Join(", ", parameters)})";
-                }
-
-                var status = elapsed >= 100 ? "[SLOW]" : "[OK]";
-                _logger.LogInformation("{Status} {Class}.{Method}{Params} -> {Elapsed:F2}ms", 
-                    status,
-                    context.Controller.GetType().Name,
-                    _methodName,
-                    paramString,
-                    elapsed);
-            }
+            MethodWatchStatistics.RecordExecution(
+                className,
+                _methodName,
+                (long)elapsed,
+                context.Exception != null,
+                null,
+                _thresholdMilliseconds
+            );
         }
-    }
 
-    private static string SafeSerialize(object? obj)
-    {
-        if (obj == null) return "null";
-        
-        try
+        if (context.Exception != null)
         {
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = false,
-                MaxDepth = 3
-            };
-            return JsonSerializer.Serialize(obj, options);
+            _logger.LogError(context.Exception, $"{className}.{_methodName} failed after {elapsed:F2}ms");
         }
-        catch
+        else
         {
-            return obj.ToString() ?? "null";
+            _logger.LogInformation($"{className}.{_methodName} completed in {elapsed:F2}ms");
         }
     }
 } 
